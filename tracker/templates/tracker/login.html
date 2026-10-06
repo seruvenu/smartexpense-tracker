@@ -1,0 +1,63 @@
+{% extends 'tracker/base.html' %}
+{% load tracker_extras %}
+
+{% block title %}Log In - SmartExpense{% endblock %}
+
+{% block content %}
+<div class="auth-stage">
+    <div class="aurora"><i></i><i></i><i></i></div>
+    <div class="row g-0 auth-wrap">
+        <div class="col-lg-6 auth-hero d-none d-lg-flex">
+            <div>
+                <h2>Know before<br>you overspend.</h2>
+                <p class="mt-2">Set a limit for each category. You get a warning at 80%, and anything past the limit shows with a minus.</p>
+            </div>
+            <div class="demo" aria-hidden="true">
+                <div class="demo-top"><span>Food</span><span>{% currency_symbol %}5,000</span></div>
+                <div class="demo-track"><div class="demo-bar"></div></div>
+                <div class="demo-msg">
+                    <span class="m1">On track</span>
+                    <span class="m2">Warning: 80% used</span>
+                    <span class="m3">-{% currency_symbol %}240 over budget</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 auth-panel">
+            <div class="mb-4">
+                <h3 class="fw-bold mb-1">Log in</h3>
+                <p class="text-muted small mb-0">Pick up where you left off.</p>
+            </div>
+            <form method="post" action="{% url 'login' %}">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger alert-custom py-2 small">
+                        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+                    </div>
+                {% endif %}
+                <div class="mb-3">
+                    <label for="id_username" class="form-label fw-bold">Username</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
+                        <input type="text" name="username" id="id_username" class="form-control border-start-0" placeholder="Enter your username" required autofocus>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <label for="id_password" class="form-label fw-bold">Password</label>
+                        <a href="{% url 'password_reset' %}" class="forgot-link">Forgot password?</a>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-key text-muted"></i></span>
+                        <input type="password" name="password" id="id_password" class="form-control border-start-0 border-end-0" placeholder="Enter your password" required>
+                        <span class="input-group-text bg-light border-start-0 pw-toggle" data-target="id_password" role="button" aria-label="Show password"><i class="bi bi-eye text-muted"></i></span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-gradient w-100 py-2 fs-6 mb-3"><i class="bi bi-box-arrow-in-right me-2"></i> Log In</button>
+            </form>
+            <div class="text-center pt-3 border-top">
+                <p class="text-muted mb-0 small">Don't have an account? <a href="{% url 'register' %}" class="fw-bold text-decoration-none forgot-link">Register here</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'tracker/base.html' %}
+{% block content %}
+<div class="auth-stage">
+    <div class="aurora"><i></i><i></i><i></i></div>
+    <div class="card card-custom auth-card p-4 p-md-5">
+        <div class="text-center mb-4">
+            <div class="auth-icon"><i class="bi {% block icon %}bi-shield-lock-fill{% endblock %}"></i></div>
+            <h3 class="fw-bold">{% block heading %}{% endblock %}</h3>
+            <p class="text-muted small mb-0">{% block sub %}{% endblock %}</p>
+        </div>
+        {% block body %}{% endblock %}
+    </div>
+</div>
+{% endblock %}

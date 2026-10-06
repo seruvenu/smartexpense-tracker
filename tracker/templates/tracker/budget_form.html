@@ -1,0 +1,63 @@
+{% extends 'tracker/base.html' %}
+{% load tracker_extras %}
+
+{% block title %}{{ title }} - SmartExpense{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-7 col-lg-6">
+        <div class="card card-custom p-4 p-md-5">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <h3 class="fw-bold mb-0">{{ title }}</h3>
+                <a href="{% url 'budget_list' %}" class="btn-close" aria-label="Close"></a>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger alert-custom py-2 small mb-3">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="{{ form.category.id_for_label }}" class="form-label fw-bold">Category</label>
+                    {{ form.category }}
+                    {% for error in form.category.errors %}
+                        <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="{{ form.monthly_limit.id_for_label }}" class="form-label fw-bold">Monthly Spending Limit ({% currency_symbol %})</label>
+                    {{ form.monthly_limit }}
+                    {% for error in form.monthly_limit.errors %}
+                        <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-4">
+                    <label for="{{ form.month_year.id_for_label }}" class="form-label fw-bold">Target Month (YYYY-MM)</label>
+                    {{ form.month_year }}
+                    {% if form.month_year.help_text %}
+                        <div class="form-text text-muted small">{{ form.month_year.help_text }}</div>
+                    {% endif %}
+                    {% for error in form.month_year.errors %}
+                        <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end">
+                    <a href="{% url 'budget_list' %}" class="btn btn-light rounded-pill px-4">Cancel</a>
+                    <button type="submit" class="btn btn-gradient rounded-pill px-4">
+                        <i class="bi bi-check2-circle me-1"></i> Save Budget
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

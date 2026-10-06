@@ -1,0 +1,35 @@
+{% extends 'tracker/base.html' %}
+
+{% block title %}Delete Category - SmartExpense{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center py-4">
+    <div class="col-md-6 col-lg-5">
+        <div class="card card-custom p-4 text-center">
+            <div class="stat-icon bg-danger-subtle text-danger mx-auto mb-3" style="width:64px; height:64px; font-size:1.8rem;">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <h4 class="fw-bold mb-2">Delete Category "{{ category.name }}"?</h4>
+
+            {% if expense_count > 0 or budget_count > 0 %}
+                <div class="alert alert-warning alert-custom text-start small mb-4">
+                    <i class="bi bi-shield-exclamation me-1"></i>
+                    <strong>Safe Cascading Delete Notice:</strong> This category has <strong>{{ expense_count }} logged expense(s)</strong> and <strong>{{ budget_count }} budget setting(s)</strong>. Deleting this category will safely delete all associated records.
+                </div>
+            {% else %}
+                <p class="text-muted mb-4">Are you sure you want to delete this category?</p>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="{% url 'category_list' %}" class="btn btn-light rounded-pill px-4">Cancel</a>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">
+                        <i class="bi bi-trash me-1"></i> Confirm Delete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'tracker/base.html' %}
+
+{% block title %}Create Account - SmartExpense{% endblock %}
+
+{% block content %}
+<div class="auth-stage"><div class="aurora"><i></i><i></i><i></i></div>
+<div class="row justify-content-center w-100">
+    <div class="col-md-7 col-lg-6">
+        <div class="card card-custom auth-card p-4 p-md-5" style="max-width:none">
+            <div class="text-center mb-4">
+                <div class="stat-icon bg-success-subtle text-success mx-auto mb-3" style="width:64px; height:64px; font-size:1.8rem;">
+                    <i class="bi bi-person-plus-fill"></i>
+                </div>
+                <h3 class="fw-bold">Create an Account</h3>
+                <p class="text-muted small">Start tracking your personal expenses & budget alerts today</p>
+            </div>
+
+            <form method="post" action="{% url 'register' %}">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger alert-custom py-2 small">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label font-weight-bold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text text-muted" style="font-size: 0.8rem;">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="btn btn-gradient w-100 py-2 fs-6 mt-3 mb-3">
+                    <i class="bi bi-check-circle me-2"></i> Register Account
+                </button>
+            </form>
+
+            <div class="text-center mt-3 pt-3 border-top">
+                <p class="text-muted mb-0 small">Already have an account? <a href="{% url 'login' %}" class="fw-bold text-primary text-decoration-none">Sign In</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

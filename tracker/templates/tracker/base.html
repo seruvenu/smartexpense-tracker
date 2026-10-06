@@ -1,0 +1,479 @@
+{% load tracker_extras static %}<!DOCTYPE html>
+<html lang="en" data-theme="standard" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Personal Expense Tracker & Budget Alerts{% endblock %}</title>
+
+    <!-- Apply the saved theme BEFORE the page paints (prevents a white flash in dark mode) -->
+    <script>
+        (function () {
+            var theme = 'standard';
+            try { theme = localStorage.getItem('se-theme') || 'standard'; } catch (e) {}
+            if (['standard', 'light', 'dark'].indexOf(theme) === -1) { theme = 'standard'; }
+            document.documentElement.setAttribute('data-theme', theme);
+            document.documentElement.setAttribute('data-bs-theme', theme === 'dark' ? 'dark' : 'light');
+        })();
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Bricolage+Grotesque:wght@600;700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        /* ---------- Theme tokens ---------- */
+        /* STANDARD: soft grey page, dark navbar, white cards (the original look) */
+        :root, [data-theme="standard"] {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --text: #1e293b;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --track: #e2e8f0;
+            --nav-bg: #0f172a;
+            --nav-border: transparent;
+            --nav-text: #94a3b8;
+            --nav-text-active: #ffffff;
+            --nav-hover: rgba(255, 255, 255, 0.08);
+            --footer-bg: #0f172a;
+            --footer-text: #64748b;
+            --card-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
+            --card-border: transparent;
+        }
+        /* LIGHT: clean white everywhere, thin borders instead of shadows */
+        [data-theme="light"] {
+            --bg: #ffffff;
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+            --track: #e5e7eb;
+            --nav-bg: #ffffff;
+            --nav-border: #e2e8f0;
+            --nav-text: #475569;
+            --nav-text-active: #4f46e5;
+            --nav-hover: rgba(79, 70, 229, 0.08);
+            --footer-bg: #f8fafc;
+            --footer-text: #64748b;
+            --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.06);
+            --card-border: #e2e8f0;
+        }
+        /* DARK */
+        [data-theme="dark"] {
+            --bg: #0b1120;
+            --surface: #121b30;
+            --surface-2: #1a2540;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: #26334f;
+            --track: #26334f;
+            --nav-bg: #0b1120;
+            --nav-border: #1f2b46;
+            --nav-text: #94a3b8;
+            --nav-text-active: #ffffff;
+            --nav-hover: rgba(255, 255, 255, 0.08);
+            --footer-bg: #0b1120;
+            --footer-text: #64748b;
+            --card-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.35);
+            --card-border: #1f2b46;
+        }
+
+        :root {
+            --font-family-sans-serif: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            --card-border-radius: 16px;
+        }
+
+        body {
+            font-family: var(--font-family-sans-serif);
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.25s ease, color 0.25s ease;
+        }
+
+        /* ---------- Navbar ---------- */
+        .navbar-custom {
+            background: var(--nav-bg);
+            border-bottom: 1px solid var(--nav-border);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .navbar-brand {
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-link {
+            font-weight: 500;
+            color: var(--nav-text) !important;
+            transition: all 0.2s ease;
+            padding: 0.5rem 1rem !important;
+            border-radius: 8px;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--nav-text-active) !important;
+            background: var(--nav-hover);
+        }
+        [data-theme="light"] .navbar-toggler-icon { filter: invert(1); }
+        [data-theme="light"] .navbar-custom .btn-outline-light {
+            --bs-btn-color: #334155;
+            --bs-btn-border-color: #cbd5e1;
+            --bs-btn-hover-color: #0f172a;
+            --bs-btn-hover-bg: #f1f5f9;
+            --bs-btn-hover-border-color: #cbd5e1;
+            --bs-btn-active-color: #0f172a;
+            --bs-btn-active-bg: #e2e8f0;
+            --bs-btn-active-border-color: #cbd5e1;
+        }
+
+        .nav-icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            background: transparent;
+            color: var(--nav-text);
+            font-size: 1.15rem;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .nav-icon-btn:hover, .nav-icon-btn.show {
+            background: var(--nav-hover);
+            color: var(--nav-text-active);
+        }
+        .nav-icon-btn::after { display: none; } /* hide Bootstrap's dropdown caret */
+        .bell-badge {
+            position: absolute;
+            top: 2px;
+            right: 0;
+            font-size: 0.62rem;
+            padding: 0.28em 0.5em;
+            border: 2px solid var(--nav-bg);
+        }
+
+        /* ---------- Dropdowns (user, theme, notifications) ---------- */
+        .dropdown-menu {
+            --bs-dropdown-bg: var(--surface);
+            --bs-dropdown-color: var(--text);
+            --bs-dropdown-border-color: var(--border);
+            --bs-dropdown-link-color: var(--text);
+            --bs-dropdown-link-hover-color: var(--text);
+            --bs-dropdown-link-hover-bg: var(--surface-2);
+            --bs-dropdown-divider-bg: var(--border);
+            --bs-dropdown-header-color: var(--muted);
+            border-radius: 14px;
+        }
+        .theme-check { visibility: hidden; color: #6366f1; }
+        [data-theme="standard"] [data-theme-choice="standard"] .theme-check,
+        [data-theme="light"] [data-theme-choice="light"] .theme-check,
+        [data-theme="dark"] [data-theme-choice="dark"] .theme-check { visibility: visible; }
+
+        .notif-menu { width: 370px; max-width: 92vw; overflow: hidden; }
+        .notif-list { max-height: 340px; overflow-y: auto; }
+        .notif-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.8rem 1rem;
+            color: var(--text);
+            text-decoration: none;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s ease;
+        }
+        .notif-item:hover { background: var(--surface-2); color: var(--text); }
+        .notif-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            flex: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .notif-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .notif-warning { background: rgba(245, 158, 11, 0.18); color: #d97706; }
+        .notif-success { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+
+        /* ---------- Cards & shared components ---------- */
+        .card-custom {
+            border: 1px solid var(--card-border);
+            border-radius: var(--card-border-radius);
+            box-shadow: var(--card-shadow);
+            background: var(--surface);
+            color: var(--text);
+            transition: box-shadow 0.2s ease, background-color 0.25s ease;
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.35rem;
+        }
+        .btn-gradient {
+            background: var(--primary-gradient);
+            color: white;
+            border: none;
+            font-weight: 600;
+            padding: 0.6rem 1.4rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s ease;
+        }
+        .btn-gradient:hover {
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+        }
+        .badge-normal { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-warning-custom { background-color: #fef9c3; color: #a16207; border: 1px solid #fef08a; }
+        .badge-danger-custom { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+        .progress { --bs-progress-bg: var(--track); }
+        .progress-thin {
+            height: 10px;
+            border-radius: 20px;
+            background-color: var(--track);
+            overflow: hidden;
+        }
+        .alert-custom { border-radius: 12px; border: none; }
+
+        footer {
+            margin-top: auto;
+            background: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 1.5rem 0;
+            font-size: 0.875rem;
+            border-top: 1px solid var(--nav-border);
+        }
+
+        /* ---------- Dark-mode fixes for Bootstrap pieces used across the app ---------- */
+        [data-bs-theme="dark"] .form-control,
+        [data-bs-theme="dark"] .form-select {
+            background-color: var(--surface-2);
+            border-color: var(--border);
+            color: var(--text);
+        }
+        [data-bs-theme="dark"] .form-control:focus,
+        [data-bs-theme="dark"] .form-select:focus { border-color: #6366f1; box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25); }
+        [data-bs-theme="dark"] .modal-content { background-color: var(--surface); color: var(--text); }
+        [data-bs-theme="dark"] .bg-light { background-color: var(--surface-2) !important; }
+        [data-bs-theme="dark"] .bg-light.text-dark { color: var(--text) !important; }
+        [data-bs-theme="dark"] .bg-white { background-color: var(--surface) !important; }
+        [data-bs-theme="dark"] .table { --bs-table-bg: transparent; --bs-table-color: var(--text); --bs-table-border-color: var(--border); }
+        [data-bs-theme="dark"] .table-light { --bs-table-bg: var(--surface-2); --bs-table-color: var(--muted); --bs-table-border-color: var(--border); }
+        [data-bs-theme="dark"] .btn-light {
+            --bs-btn-color: var(--text);
+            --bs-btn-bg: var(--surface-2);
+            --bs-btn-border-color: var(--border);
+            --bs-btn-hover-color: #ffffff;
+            --bs-btn-hover-bg: #243253;
+            --bs-btn-hover-border-color: var(--border);
+            --bs-btn-active-color: #ffffff;
+            --bs-btn-active-bg: #243253;
+            --bs-btn-active-border-color: var(--border);
+        }
+        [data-bs-theme="dark"] .text-primary { color: #818cf8 !important; }
+        [data-bs-theme="dark"] .alert-success { --bs-alert-bg: rgba(34, 197, 94, 0.14); --bs-alert-color: #86efac; --bs-alert-border-color: transparent; }
+        [data-bs-theme="dark"] .alert-danger { --bs-alert-bg: rgba(239, 68, 68, 0.15); --bs-alert-color: #fca5a5; --bs-alert-border-color: transparent; }
+        [data-bs-theme="dark"] .alert-warning { --bs-alert-bg: rgba(245, 158, 11, 0.15); --bs-alert-color: #fcd34d; --bs-alert-border-color: transparent; }
+        [data-bs-theme="dark"] .alert-info { --bs-alert-bg: rgba(59, 130, 246, 0.15); --bs-alert-color: #93c5fd; --bs-alert-border-color: transparent; }
+    </style>
+    <link href="{% static 'tracker/pro.css' %}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom sticky-top py-3">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2 fs-4" href="{% url 'dashboard' %}">
+                <i class="bi bi-wallet2 text-primary fs-3"></i>
+                <span>SmartExpense</span>
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                {% if user.is_authenticated %}
+                <ul class="navbar-nav me-auto ms-lg-4 gap-1">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+                            <i class="bi bi-grid-1x2 me-1"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'expenses' in request.path %}active{% endif %}" href="{% url 'expense_list' %}">
+                            <i class="bi bi-receipt me-1"></i> Expenses
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'categories' in request.path %}active{% endif %}" href="{% url 'category_list' %}">
+                            <i class="bi bi-tags me-1"></i> Categories
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'budgets' in request.path %}active{% endif %}" href="{% url 'budget_list' %}">
+                            <i class="bi bi-pie-chart me-1"></i> Category Budgets
+                        </a>
+                    </li>
+                </ul>
+                {% endif %}
+
+                <div class="d-flex align-items-center gap-2 {% if not user.is_authenticated %}ms-auto{% endif %}">
+                    <!-- Theme switcher -->
+                    <div class="dropdown">
+                        <button class="nav-icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Change theme" title="Theme">
+                            <i class="bi bi-palette2"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                            <li><h6 class="dropdown-header">Theme</h6></li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme-choice="standard">
+                                    <i class="bi bi-circle-half"></i> Standard <i class="bi bi-check2 ms-auto theme-check"></i>
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme-choice="light">
+                                    <i class="bi bi-sun"></i> Light <i class="bi bi-check2 ms-auto theme-check"></i>
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item d-flex align-items-center gap-2" data-theme-choice="dark">
+                                    <i class="bi bi-moon-stars"></i> Dark <i class="bi bi-check2 ms-auto theme-check"></i>
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {% if user.is_authenticated %}
+                    <!-- Notification bell -->
+                    <div class="dropdown">
+                        <button class="nav-icon-btn" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-label="Notifications ({{ nav_alert_count }})" title="Budget notifications">
+                            <i class="bi {% if nav_alert_count %}bi-bell-fill{% else %}bi-bell{% endif %}"></i>
+                            {% if nav_alert_count %}
+                            <span class="badge rounded-pill bell-badge {% if nav_alert_has_danger %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ nav_alert_count }}</span>
+                            {% endif %}
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 notif-menu p-0">
+                            <div class="d-flex align-items-center justify-content-between px-3 py-3 border-bottom" style="border-color: var(--border) !important;">
+                                <span class="fw-bold">Notifications</span>
+                                <small class="text-muted">{{ nav_alert_month|date:"F Y" }}</small>
+                            </div>
+                            <div class="notif-list">
+                                {% for alert in nav_alerts %}
+                                <a class="notif-item" href="{% url 'budget_update' alert.budget.id %}">
+                                    <span class="notif-icon {% if alert.status == 'danger' %}notif-danger{% else %}notif-warning{% endif %}">
+                                        <i class="bi {% if alert.status == 'danger' %}bi-exclamation-octagon-fill{% else %}bi-exclamation-triangle-fill{% endif %}"></i>
+                                    </span>
+                                    <span class="flex-grow-1">
+                                        <span class="d-block fw-semibold">
+                                            {{ alert.category.name }}
+                                            {% if alert.status == 'danger' %}
+                                                {% if alert.over_amount > 0 %}is over budget{% else %}used its full budget{% endif %}
+                                            {% else %}
+                                                is at {{ alert.percentage }}% of its limit
+                                            {% endif %}
+                                        </span>
+                                        <small class="text-muted">
+                                            {{ alert.spent|money }} of {{ alert.limit|money }}
+                                            &middot;
+                                            {% if alert.over_amount > 0 %}<span class="text-danger fw-bold">{{ alert.over_amount|money_minus }}</span> over{% else %}{{ alert.remaining|money }} left{% endif %}
+                                        </small>
+                                    </span>
+                                </a>
+                                {% empty %}
+                                <div class="d-flex align-items-center gap-3 px-3 py-4">
+                                    <span class="notif-icon notif-success"><i class="bi bi-check2-circle fs-5"></i></span>
+                                    <span>
+                                        <span class="d-block fw-semibold">All good!</span>
+                                        <small class="text-muted">No budget alerts this month.</small>
+                                    </span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <a href="{% url 'budget_list' %}" class="d-block text-center py-2 small fw-semibold text-decoration-none" style="background: var(--surface-2);">View all budgets</a>
+                        </div>
+                    </div>
+
+                    <!-- User menu -->
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle rounded-pill px-3" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-1"></i> {{ user.username }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2">
+                            <li><span class="dropdown-item-text text-muted small">Signed in as <strong>{{ user.username }}</strong></span></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="post" action="{% url 'logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i> Log out</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="btn btn-outline-light rounded-pill px-4">Log In</a>
+                    <a href="{% url 'register' %}" class="btn btn-gradient rounded-pill px-4">Get Started</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container py-4">
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} alert-dismissible fade show alert-custom shadow-sm mb-4" role="alert">
+                    {% if message.tags == 'success' %}
+                        <i class="bi bi-check-circle-fill me-2 fs-5 text-success"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning"></i>
+                    {% elif message.tags == 'danger' or message.tags == 'error' %}
+                        <i class="bi bi-exclamation-octagon-fill me-2 fs-5 text-danger"></i>
+                    {% else %}
+                        <i class="bi bi-info-circle-fill me-2 fs-5 text-info"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+
+    <!-- Bootstrap 5.3 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme switcher: remembers the choice in the browser and tells charts to redraw.
+        document.querySelectorAll('[data-theme-choice]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var theme = button.getAttribute('data-theme-choice');
+                document.documentElement.setAttribute('data-theme', theme);
+                document.documentElement.setAttribute('data-bs-theme', theme === 'dark' ? 'dark' : 'light');
+                try { localStorage.setItem('se-theme', theme); } catch (e) {}
+                document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
+            });
+        });
+    </script>
+    <script src="{% static 'tracker/pro.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

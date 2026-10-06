@@ -1,0 +1,335 @@
+{% extends 'tracker/base.html' %}
+{% load tracker_extras %}
+
+{% block title %}Dashboard - SmartExpense Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kpi-label { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+    .kpi-value { font-size: 1.75rem; font-weight: 800; line-height: 1.15; }
+
+    /* Overall gauge (pure CSS donut) */
+    .gauge {
+        --p: 0; --c: #22c55e;
+        width: 92px; height: 92px; border-radius: 50%;
+        background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--track) 0);
+        display: grid; place-items: center; position: relative; flex: none;
+    }
+    .gauge::before { content: ""; position: absolute; inset: 10px; border-radius: 50%; background: var(--surface); }
+    .gauge span { position: relative; font-weight: 800; font-size: 1.05rem; }
+    .gauge-danger { --c: #ef4444; }
+    .gauge-warning { --c: #f59e0b; }
+    .gauge-normal { --c: #22c55e; }
+
+    /* Status chips = the filter for the category list */
+    .chip {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        padding: 0.45rem 0.95rem; border-radius: 999px;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text);
+        font-weight: 600; font-size: 0.875rem; cursor: pointer; transition: all 0.15s ease;
+    }
+    .chip:hover { border-color: #6366f1; }
+    .chip.active { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+    .chip .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .dot-danger { background: #ef4444; }
+    .dot-warning { background: #f59e0b; }
+    .dot-normal { background: #22c55e; }
+    .dot-all { background: #6366f1; }
+    .chip.active .dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+
+    /* Category rows */
+    .cat-row { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+    .cat-row:last-child { border-bottom: 0; }
+    .cat-row.status-danger { border-left: 4px solid #ef4444; }
+    .cat-row.status-warning { border-left: 4px solid #f59e0b; }
+    .cat-row.status-normal { border-left: 4px solid #22c55e; }
+    .meter { position: relative; }
+    .meter::after { /* tick marking the 80 % warning threshold */
+        content: ""; position: absolute; left: 80%; top: 0; bottom: 0; width: 2px; background: var(--surface); opacity: 0.9;
+    }
+
+    .recent-item { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid var(--border); }
+    .recent-item:last-child { border-bottom: 0; }
+    .chart-box { position: relative; height: 240px; }
+    .min-w-0 { min-width: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header: month switcher + log expense -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-0">{{ selected_date|date:"F Y" }}</h2>
+        <p class="text-muted mb-0 small">Your spending and budget status</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-sm btn-outline-secondary" href="?month={{ prev_month }}" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+        <form method="get" class="m-0">
+            <input type="month" name="month" value="{{ selected_month }}" class="form-control form-control-sm" aria-label="Select month" onchange="this.form.submit()">
+        </form>
+        <a class="btn btn-sm btn-outline-secondary" href="?month={{ next_month }}" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+        <button type="button" class="btn btn-gradient btn-sm text-nowrap ms-1" data-bs-toggle="modal" data-bs-target="#quickExpenseModal">
+            <i class="bi bi-plus-circle me-1"></i> Log Expense
+        </button>
+    </div>
+</div>
+
+<!-- Summary cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card card-custom p-3 h-100">
+            <div class="kpi-label mb-2">Spent</div>
+            <div class="kpi-value count">{{ total_spent|money }}</div>
+            <div class="small text-muted mt-1">
+                {% if unbudgeted_spent > 0 %}incl. {{ unbudgeted_spent|money }} without a budget{% else %}this month{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card card-custom p-3 h-100">
+            <div class="kpi-label mb-2">Budget</div>
+            <div class="kpi-value count">{{ total_budget|money }}</div>
+            <div class="small text-muted mt-1">
+                {% if has_budgets %}across {{ counts.all }} categor{{ counts.all|pluralize:"y,ies" }}{% else %}no limits set yet{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card card-custom p-3 h-100">
+            <div class="kpi-label mb-2">{% if total_remaining < 0 %}Over budget{% else %}Left to spend{% endif %}</div>
+            <div class="kpi-value count {% if total_remaining < 0 %}text-danger{% elif has_budgets %}text-success{% endif %}">
+                {% if total_remaining < 0 %}{{ total_remaining|money }}{% else %}{{ total_remaining|money_abs }}{% endif %}
+            </div>
+            <div class="small text-muted mt-1">budgeted categories only</div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card card-custom p-3 h-100">
+            {% if has_budgets %}
+            <div class="d-flex align-items-center gap-3">
+                <div class="gauge gauge-{{ overall.status }}" style="--p: {{ overall.display_percentage|stringformat:'.1f' }}">
+                    <span>{{ overall.percentage|floatformat:0 }}%</span>
+                </div>
+                <div>
+                    <div class="kpi-label mb-1">Overall</div>
+                    <span class="badge {{ overall.badge_class }} rounded-pill">{{ overall.label }}</span>
+                </div>
+            </div>
+            {% else %}
+            <div class="kpi-label mb-2">Overall</div>
+            <div class="small text-muted">Set a budget to see your overall status.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if has_budgets %}
+<!-- One status strip instead of many banners; chips also filter the list below -->
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2" id="statusChips">
+    <button type="button" class="chip active" data-filter="all"><span class="dot dot-all"></span> All {{ counts.all }}</button>
+    <button type="button" class="chip" data-filter="danger"><span class="dot dot-danger"></span> {{ counts.danger }} over budget</button>
+    <button type="button" class="chip" data-filter="warning"><span class="dot dot-warning"></span> {{ counts.warning }} near limit</button>
+    <button type="button" class="chip" data-filter="normal"><span class="dot dot-normal"></span> {{ counts.normal }} on track</button>
+</div>
+{% if forecast %}
+<p class="small mb-4 {% if forecast.will_exceed %}text-danger{% else %}text-muted{% endif %}">
+    <i class="bi bi-graph-up-arrow me-1"></i>
+    At this pace you'll spend about <strong>{{ forecast.projected|money }}</strong> by month end,
+    {% if forecast.will_exceed %}<span class="neg-pill">{{ forecast.difference|money_minus }}</span> over your budget{% else %}{{ forecast.difference|money }} under your budget{% endif %}
+    ({{ forecast.days_left }} day{{ forecast.days_left|pluralize }} left).
+</p>
+{% else %}
+<div class="mb-4"></div>
+{% endif %}
+{% endif %}
+
+<div class="row g-4">
+    <!-- Left: categories, worst first -->
+    <div class="col-lg-8">
+        <div class="card card-custom overflow-hidden">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-4 py-3 border-bottom" style="border-color: var(--border) !important;">
+                <h5 class="fw-bold mb-0"><i class="bi bi-bar-chart-steps text-primary me-2"></i>Categories <span class="text-muted fw-normal small">(most urgent first)</span></h5>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{% url 'budget_set' %}?month={{ selected_month }}" class="btn btn-gradient btn-sm text-nowrap"><i class="bi bi-plus-lg me-1"></i>Set budget</a>
+                    <a href="{% url 'budget_list' %}?month={{ selected_month }}" class="btn btn-sm btn-outline-primary rounded-pill text-nowrap"><i class="bi bi-gear me-1"></i>Manage budgets</a>
+                </div>
+            </div>
+
+            {% if has_budgets %}
+                {% for row in budgeted %}
+                <div class="cat-row status-{{ row.status }}" style="--i: {{ forloop.counter0 }}" data-status="{{ row.status }}">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">{{ row.category.name }}</div>
+                            <div class="small text-muted">{{ row.spent|money }} of {{ row.limit|money }}</div>
+                        </div>
+                        <span class="badge {{ row.badge_class }} rounded-pill text-nowrap">{{ row.label }} &middot; {{ row.percentage }}%</span>
+                    </div>
+                    <div class="progress progress-thin meter mt-2" role="progressbar" aria-label="{{ row.category.name }} budget used" aria-valuenow="{{ row.display_percentage|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar {{ row.progress_class }}{% if row.over_amount > 0 %} progress-bar-striped{% endif %}" style="width: {{ row.display_percentage|stringformat:'.1f' }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center small mt-1">
+                        {% if row.over_amount > 0 %}
+                            <span class="neg-pill"><i class="bi bi-dash-circle-fill"></i>{{ row.over_amount|money_minus }} over</span>
+                        {% elif row.remaining == 0 %}
+                            <span class="text-danger fw-semibold">Budget fully used</span>
+                        {% else %}
+                            <span class="text-muted">{{ row.remaining|money }} left</span>
+                        {% endif %}
+                        <a href="{% url 'budget_update' row.budget.id %}" class="text-decoration-none"><i class="bi bi-pencil me-1"></i>Edit budget</a>
+                    </div>
+                </div>
+                {% endfor %}
+                <div id="noMatch" class="text-center text-muted py-4 d-none">No categories in this state.</div>
+            {% else %}
+                <div class="text-center py-5 px-3">
+                    <div class="stat-icon bg-primary-subtle text-primary mx-auto mb-3"><i class="bi bi-piggy-bank"></i></div>
+                    <h6 class="fw-bold">No budgets for {{ selected_date|date:"F Y" }}</h6>
+                    <p class="text-muted small mb-3">Set a monthly limit for a category to start getting alerts at 80% and 100%.</p>
+                    <a href="{% url 'budget_set' %}?month={{ selected_month }}" class="btn btn-gradient btn-sm"><i class="bi bi-plus-circle me-1"></i>Set your first budget</a>
+                </div>
+            {% endif %}
+
+            {% if unbudgeted %}
+            <div class="px-4 py-3 border-top" style="border-color: var(--border) !important; background: var(--surface-2);">
+                <div class="kpi-label mb-2">Spending without a budget</div>
+                {% for item in unbudgeted %}
+                <div class="d-flex justify-content-between align-items-center py-1">
+                    <span>{{ item.category.name }} <span class="text-muted small">&middot; {{ item.spent|money }}</span></span>
+                    <a href="{% url 'budget_set' %}?category={{ item.category.id }}&month={{ selected_month }}" class="btn btn-sm btn-outline-primary rounded-pill py-0">Set budget</a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right: chart + recent expenses -->
+    <div class="col-lg-4">
+        <div class="card card-custom p-4 mb-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart-fill text-primary me-2"></i>Where your money went</h6>
+            {% if chart_data.values %}
+                <div class="chart-box"><canvas id="spendChart" aria-label="Spending by category" role="img"></canvas></div>
+                {{ chart_data|json_script:"chart-data" }}
+            {% else %}
+                <p class="text-muted small mb-0">No spending recorded for {{ selected_date|date:"F Y" }} yet.</p>
+            {% endif %}
+        </div>
+
+        <div class="card card-custom p-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-clock-history text-primary me-2"></i>Recent expenses</h6>
+                <a href="{% url 'expense_list' %}" class="small text-decoration-none">View all</a>
+            </div>
+            {% for expense in recent_expenses %}
+            <div class="recent-item">
+                <div class="min-w-0">
+                    <div class="fw-semibold text-truncate">{{ expense.category.name }}</div>
+                    <div class="small text-muted text-truncate">{{ expense.date|date:"M d" }}{% if expense.notes %} &middot; {{ expense.notes|truncatechars:28 }}{% endif %}</div>
+                </div>
+                <div class="fw-bold text-nowrap">{{ expense.amount|money }}</div>
+            </div>
+            {% empty %}
+            <p class="text-muted small mb-0 pt-2">No expenses yet. Use <strong>Log Expense</strong> to add your first one.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Quick Expense Logging Modal -->
+<div class="modal fade" id="quickExpenseModal" tabindex="-1" aria-labelledby="quickExpenseModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="quickExpenseModalLabel"><i class="bi bi-plus-circle-fill text-primary me-2"></i>Log New Expense</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'expense_create' %}">
+                {% csrf_token %}
+                <div class="modal-body py-3">
+                    <div class="mb-3">
+                        <label for="id_amount" class="form-label fw-bold">Amount ({% currency_symbol %})</label>
+                        {{ expense_form.amount }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_date" class="form-label fw-bold">Date</label>
+                        {{ expense_form.date }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_category" class="form-label fw-bold">Category</label>
+                        {{ expense_form.category }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_notes" class="form-label fw-bold">Notes (Optional)</label>
+                        {{ expense_form.notes }}
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-gradient rounded-pill px-4"><i class="bi bi-check2-circle me-1"></i> Save Expense</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    // 1) Status chips filter the category list
+    (function () {
+        var chips = document.querySelectorAll('#statusChips [data-filter]');
+        var rows = document.querySelectorAll('.cat-row');
+        var empty = document.getElementById('noMatch');
+        chips.forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                var filter = chip.getAttribute('data-filter');
+                var visible = 0;
+                chips.forEach(function (c) { c.classList.toggle('active', c === chip); });
+                rows.forEach(function (row) {
+                    var show = filter === 'all' || row.getAttribute('data-status') === filter;
+                    row.classList.toggle('d-none', !show);
+                    if (show) { visible += 1; }
+                });
+                if (empty) { empty.classList.toggle('d-none', visible > 0); }
+            });
+        });
+    })();
+
+    // 2) Doughnut chart (re-coloured when the theme changes)
+    (function () {
+        var dataEl = document.getElementById('chart-data');
+        var canvas = document.getElementById('spendChart');
+        if (!dataEl || !canvas || typeof Chart === 'undefined') { return; }
+        var data = JSON.parse(dataEl.textContent);
+        var palette = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
+        function textColor() {
+            return getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#1e293b';
+        }
+        var chart = new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: data.labels.map(function (_, i) { return palette[i % palette.length]; }),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: textColor(), boxWidth: 12, usePointStyle: true } },
+                    tooltip: { callbacks: { label: function (ctx) { return ' ' + ctx.label + ': {% currency_symbol %}' + ctx.parsed.toFixed(2); } } }
+                }
+            }
+        });
+        document.addEventListener('themechange', function () {
+            chart.options.plugins.legend.labels.color = textColor();
+            chart.update();
+        });
+    })();
+</script>
+{% endblock %}

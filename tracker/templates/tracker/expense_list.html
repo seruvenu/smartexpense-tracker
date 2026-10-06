@@ -1,0 +1,82 @@
+{% extends 'tracker/base.html' %}
+{% load tracker_extras %}
+
+{% block title %}Expense Transactions - SmartExpense{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Expense Log</h2>
+        <p class="text-muted mb-0">View, filter, and manage all your logged expenses</p>
+    </div>
+    <a href="{% url 'expense_create' %}" class="btn btn-gradient btn-sm rounded-pill">
+        <i class="bi bi-plus-circle me-1"></i> Add New Expense
+    </a>
+</div>
+
+<!-- Filter Bar -->
+<div class="card card-custom p-3 mb-4">
+    <form method="get" class="row g-2 align-items-center">
+        <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Filter by Month</label>
+            <input type="month" name="month" value="{{ selected_month }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">Filter by Category</label>
+            <select name="category" class="form-select form-select-sm">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if selected_category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end gap-2 mt-md-4">
+            <button type="submit" class="btn btn-primary btn-sm rounded-pill px-3"><i class="bi bi-filter me-1"></i> Apply Filter</button>
+            <a href="{% url 'expense_list' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">Reset</a>
+        </div>
+    </form>
+</div>
+
+<!-- Expenses Table -->
+<div class="card card-custom p-4">
+    {% if expenses %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Notes</th>
+                    <th class="text-end">Amount</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr>
+                    <td><i class="bi bi-calendar3 me-2 text-muted"></i>{{ expense.date|date:"Y-m-d" }}</td>
+                    <td>
+                        <span class="badge bg-light text-dark border px-2 py-1">
+                            <i class="bi bi-tag-fill me-1 text-primary"></i>{{ expense.category.name }}
+                        </span>
+                    </td>
+                    <td>{{ expense.notes|default:"-" }}</td>
+                    <td class="text-end fw-bold text-danger">-{{ expense.amount|money }}</td>
+                    <td class="text-center">
+                        <a href="{% url 'expense_update' expense.id %}" class="btn btn-sm btn-light text-primary me-1" title="Edit"><i class="bi bi-pencil"></i> Edit</a>
+                        <a href="{% url 'expense_delete' expense.id %}" class="btn btn-sm btn-light text-danger" title="Delete"><i class="bi bi-trash"></i> Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+        <p class="mb-2">No expenses found matching your filter options.</p>
+        <a href="{% url 'expense_create' %}" class="btn btn-gradient btn-sm rounded-pill mt-2">Log Expense</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
